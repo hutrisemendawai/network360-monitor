@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# PocketBase data
+pocketbase/pb_data/
+pocketbase/pocketbase.exe
+pocketbase/pocketbase
+
+# SvelteKit
+frontend/.svelte-kit/
+frontend/build/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

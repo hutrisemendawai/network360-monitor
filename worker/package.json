@@ -1,0 +1,14 @@
+{
+  "name": "network360-worker",
+  "version": "1.0.0",
+  "description": "Network360 Ping Worker",
+  "type": "module",
+  "main": "worker.js",
+  "scripts": {
+    "start": "node worker.js"
+  },
+  "dependencies": {
+    "pocketbase": "^0.25.0",
+    "ping": "^0.4.4"
+  }
+}
