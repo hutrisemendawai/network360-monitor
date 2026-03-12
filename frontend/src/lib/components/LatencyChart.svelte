@@ -7,11 +7,16 @@
     /** @type {{ data: number[], maxPoints?: number }} */
     let { data = [], maxPoints = 50 } = $props();
 
+    /** @type {HTMLCanvasElement | undefined} */
     let canvas;
+    /** @type {import('chart.js').Chart<'line'> | undefined} */
     let chart;
 
+    /** @param {number[]} arr */
     function getMovingAverage(arr) {
         if (arr.length === 0) return 0;
+        /** @param {number} a
+         *  @param {number} b */
         return arr.reduce((a, b) => a + b, 0) / arr.length;
     }
 
@@ -19,6 +24,7 @@
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
+        if (!ctx) return;
         const labels = data.map((_, i) => i + 1);
         const avg = getMovingAverage(data);
         const spikeThreshold = avg * 1.2;
@@ -40,8 +46,9 @@
                         pointHoverRadius: 4,
                         pointHoverBackgroundColor: '#06b6d4',
                         segment: {
+                            /** @param {any} ctx */
                             borderColor: (ctx) => {
-                                const val = ctx.p1.parsed.y;
+                                const val = ctx.p1.parsed.y ?? 0;
                                 if (val === 0) return '#ef4444';
                                 if (val > spikeThreshold) return '#f59e0b';
                                 return '#06b6d4';
@@ -95,8 +102,7 @@
                     y: {
                         beginAtZero: true,
                         grid: {
-                            color: 'rgba(100, 116, 139, 0.1)',
-                            drawBorder: false
+                            color: 'rgba(100, 116, 139, 0.1)'
                         },
                         ticks: {
                             color: '#64748b',
@@ -120,9 +126,10 @@
                         displayColors: false,
                         callbacks: {
                             title: () => '',
+                            /** @param {any} ctx */
                             label: (ctx) => {
-                                if (ctx.datasetIndex > 0) return null;
-                                const val = ctx.parsed.y;
+                                if (ctx.datasetIndex > 0) return;
+                                const val = ctx.parsed.y ?? 0;
                                 return val === 0 ? '⛔ Packet Loss' : `${val.toFixed(1)} ms`;
                             }
                         },
@@ -148,8 +155,9 @@
 
         // Update segment colors based on new average
         chart.data.datasets[0].segment = {
+            /** @param {any} ctx */
             borderColor: (ctx) => {
-                const val = ctx.p1.parsed.y;
+                const val = ctx.p1.parsed.y ?? 0;
                 if (val === 0) return '#ef4444';
                 if (val > spikeThreshold) return '#f59e0b';
                 return '#06b6d4';

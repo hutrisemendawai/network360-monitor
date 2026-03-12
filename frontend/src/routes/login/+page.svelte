@@ -7,6 +7,7 @@
     let error = $state('');
     let loading = $state(false);
 
+    /** @param {SubmitEvent} e */
     async function handleLogin(e) {
         e.preventDefault();
         error = '';
@@ -16,7 +17,7 @@
             await auth.login(email, password);
             goto('/');
         } catch (err) {
-            error = err.message || 'Login failed. Check your credentials.';
+            error = err instanceof Error ? err.message : 'Login failed. Check your credentials.';
         } finally {
             loading = false;
         }

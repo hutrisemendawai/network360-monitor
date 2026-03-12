@@ -11,6 +11,15 @@ import PocketBase from 'pocketbase';
 
 const PB_URL = 'http://127.0.0.1:8090';
 
+function createLoggedAtField() {
+    return {
+        name: 'logged_at',
+        type: 'autodate',
+        onCreate: true,
+        onUpdate: false
+    };
+}
+
 async function setup() {
     const email = process.argv[2];
     const password = process.argv[3];
@@ -100,7 +109,19 @@ async function setup() {
 
         // ===== Create 'ping_logs' collection =====
         if (existingCollections.includes('ping_logs')) {
-            console.log('⚠️  Collection "ping_logs" already exists. Skipping.');
+            const pingLogsCollection = await pb.collections.getOne('ping_logs');
+            const hasLoggedAtField = (pingLogsCollection.fields || []).some(field => field.name === 'logged_at');
+
+            if (hasLoggedAtField) {
+                console.log('⚠️  Collection "ping_logs" already exists. Skipping.');
+            } else {
+                console.log('🛠️  Updating "ping_logs" collection with timestamp field...');
+                await pb.collections.update(pingLogsCollection.id, {
+                    ...pingLogsCollection,
+                    fields: [...(pingLogsCollection.fields || []), createLoggedAtField()]
+                });
+                console.log('✅ "ping_logs" collection updated with "logged_at" field!\n');
+            }
         } else {
             // Get monitors collection ID for relation
             const monitorsCollection = await pb.collections.getOne('monitors');
@@ -129,7 +150,8 @@ async function setup() {
                         name: 'is_packet_loss',
                         type: 'bool',
                         required: false
-                    }
+                    },
+                    createLoggedAtField()
                 ],
                 listRule: 'monitor.user = @request.auth.id',
                 viewRule: 'monitor.user = @request.auth.id',
@@ -143,9 +165,10 @@ async function setup() {
         console.log('🎉 Setup complete! Collections are ready.');
         console.log('   - monitors: stores ping target configurations');
         console.log('   - ping_logs: stores ping results (created by worker)');
+        console.log('   - logged_at: stores exportable ping timestamps');
         console.log('\nNext steps:');
-        console.log('   1. cd ../frontend && npm run dev');
-        console.log('   2. cd ../worker && npm start');
+        console.log('   1. Restart the worker so new ping logs include timestamps');
+        console.log('   2. Generate a few fresh pings, then try chart/export again');
 
     } catch (err) {
         console.error('❌ Error:', err.message || err);

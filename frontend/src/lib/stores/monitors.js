@@ -22,6 +22,31 @@ function createMonitorsStore() {
     /** @type {(() => void) | null} */
     let pingLogsUnsubscribe = null;
 
+    /** @param {Record<string, any>} log */
+    function getLogTimestamp(log) {
+        return log['logged_at'] || log['created'] || log['updated'] || null;
+    }
+
+    /**
+     * @param {Record<string, any>[]} logs
+     * @param {string} startDate
+     * @param {string} endDate
+     */
+    function filterLogsByDateRange(logs, startDate, endDate) {
+        const startMs = Date.parse(startDate);
+        const endMs = Date.parse(endDate);
+
+        return logs.filter((log) => {
+            const timestamp = getLogTimestamp(log);
+            if (!timestamp) return false;
+
+            const logMs = Date.parse(timestamp);
+            if (Number.isNaN(logMs)) return false;
+
+            return logMs >= startMs && logMs <= endMs;
+        });
+    }
+
     return {
         subscribe,
         pingHistory,
@@ -33,7 +58,7 @@ function createMonitorsStore() {
             try {
                 const records = await pb.collection('monitors').getFullList({
                     filter: `user = "${pb.authStore.record.id}"`,
-                    sort: '-created'
+                    sort: '-id'
                 });
                 set(records);
             } catch (e) {
@@ -159,7 +184,7 @@ function createMonitorsStore() {
             try {
                 const logs = await pb.collection('ping_logs').getList(1, limit, {
                     filter: `monitor = "${monitorId}"`,
-                    sort: '-created'
+                    sort: '-@rowid'
                 });
                 const latencies = logs.items.reverse().map(l => l['latency_ms']);
                 pingHistory.update((/** @type {Map<string, number[]>} */ map) => {
@@ -170,6 +195,56 @@ function createMonitorsStore() {
             } catch (e) {
                 console.error('Failed to load ping history:', e);
                 return [];
+            }
+        },
+
+        /**
+         * @param {string} monitorId
+         * @param {string} startDate
+         * @param {string} endDate
+         */
+        async loadLogsForExport(monitorId, startDate, endDate) {
+            try {
+                const logs = await pb.collection('ping_logs').getFullList({
+                    filter: `monitor = "${monitorId}"`,
+                    sort: '-@rowid'
+                });
+
+                return filterLogsByDateRange(logs, startDate, endDate).sort((a, b) => {
+                    const aTime = Date.parse(getLogTimestamp(a) || '') || 0;
+                    const bTime = Date.parse(getLogTimestamp(b) || '') || 0;
+                    return aTime - bTime;
+                });
+            } catch (e) {
+                console.error('Failed to load export logs:', e);
+                throw e;
+            }
+        },
+
+        /**
+         * @param {string[]} monitorIds
+         * @param {string} startDate
+         * @param {string} endDate
+         */
+        async loadLogsForExportByMonitorIds(monitorIds, startDate, endDate) {
+            if (!monitorIds.length) return [];
+
+            const monitorFilter = monitorIds.map((id) => `monitor = "${id}"`).join(' || ');
+
+            try {
+                const logs = await pb.collection('ping_logs').getFullList({
+                    filter: `(${monitorFilter})`,
+                    sort: '-@rowid'
+                });
+
+                return filterLogsByDateRange(logs, startDate, endDate).sort((a, b) => {
+                    const aTime = Date.parse(getLogTimestamp(a) || '') || 0;
+                    const bTime = Date.parse(getLogTimestamp(b) || '') || 0;
+                    return aTime - bTime;
+                });
+            } catch (e) {
+                console.error('Failed to load export logs for monitors:', e);
+                throw e;
             }
         }
     };

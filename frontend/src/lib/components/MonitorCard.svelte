@@ -5,8 +5,8 @@
     import { monitors } from '$lib/stores/monitors.js';
     import { toast } from '$lib/stores/toast.js';
 
-    /** @type {{ monitor: any, onEdit?: () => void }} */
-    let { monitor, onEdit = () => {} } = $props();
+    /** @type {{ monitor: any, showAllCharts?: boolean, showAllAnimations?: boolean, onEdit?: () => void }} */
+    let { monitor, showAllCharts = true, showAllAnimations = true, onEdit = () => {} } = $props();
 
     let latestLatency = $state(0);
     let latestPacketLoss = $state(false);
@@ -14,7 +14,39 @@
     let chartData = $state([]);
     let loading = $state(false);
     let showChart = $state(true);
+    let showAnimation = $state(true);
     let consecutiveLossCount = $state(0);
+    let chartVisible = $derived(showAllCharts && showChart);
+    let animationVisible = $derived(showAllAnimations && showAnimation);
+    let showExportPanel = $state(false);
+    let exportLoading = $state(false);
+    let exportStart = $state('');
+    let exportEnd = $state('');
+
+    /** @param {'1h' | '24h' | '7d'} preset */
+    function applyExportPreset(preset) {
+        const now = new Date();
+        const start = new Date(now);
+
+        if (preset === '1h') start.setHours(start.getHours() - 1);
+        if (preset === '24h') start.setDate(start.getDate() - 1);
+        if (preset === '7d') start.setDate(start.getDate() - 7);
+
+        exportStart = toDateTimeLocalValue(start);
+        exportEnd = toDateTimeLocalValue(now);
+    }
+
+    $effect(() => {
+        if (showAllCharts) {
+            showChart = true;
+        }
+    });
+
+    $effect(() => {
+        if (showAllAnimations) {
+            showAnimation = true;
+        }
+    });
 
     // Derive status info from monitor state
     let statusInfo = $derived.by(() => {
@@ -93,8 +125,84 @@
         }
     }
 
+    /** @param {Date} date */
+    function toDateTimeLocalValue(date) {
+        /** @param {number} value */
+        const pad = (value) => String(value).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    /** @param {string} value */
+    function toPocketBaseDate(value) {
+        if (!value) return null;
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+
+        return date.toISOString().replace('T', ' ').replace('Z', 'Z');
+    }
+
+    /** @param {string | number | boolean | null | undefined} value */
+    function escapeCsvValue(value) {
+        const stringValue = String(value ?? '');
+        if (/[",\n]/.test(stringValue)) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+    }
+
+    async function handleExportCsv() {
+        exportLoading = true;
+        try {
+            const startDate = toPocketBaseDate(exportStart);
+            const endDate = toPocketBaseDate(exportEnd);
+
+            if (!startDate || !endDate) {
+                throw new Error('Please select both start and end date/time.');
+            }
+
+            if (new Date(exportStart) > new Date(exportEnd)) {
+                throw new Error('Start date/time must be before end date/time.');
+            }
+
+            const logs = await monitors.loadLogsForExport(monitor.id, startDate, endDate);
+            if (logs.length === 0) {
+                toast.error('No ping logs found in the selected date range.');
+                return;
+            }
+
+            const rows = [
+                ['monitor_name', 'target_host', 'timestamp', 'latency_ms', 'is_packet_loss'],
+                ...logs.map((log) => [
+                    monitor.name,
+                    monitor.target_host,
+                    log.logged_at || log.created || log.updated || '',
+                    log.latency_ms ?? 0,
+                    log.is_packet_loss ? 'true' : 'false'
+                ])
+            ];
+
+            const csv = rows.map((row) => row.map(escapeCsvValue).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `${monitor.name.replace(/[^a-z0-9-_]+/gi, '_').toLowerCase()}_${exportStart.replace(/[:T]/g, '-')}_${exportEnd.replace(/[:T]/g, '-')}.csv`;
+            anchor.click();
+            URL.revokeObjectURL(url);
+
+            toast.success(`Exported ${logs.length} ping logs to CSV.`);
+        } catch (err) {
+            toast.error(`Failed to export CSV: ${/** @type {Error} */ (err).message}`);
+        } finally {
+            exportLoading = false;
+        }
+    }
+
 
     onMount(() => {
+        applyExportPreset('1h');
+
         // Load initial ping history
         monitors.loadHistory(monitor.id, 50).then((/** @type {any[]} */ logs) => {
             chartData = logs.map((/** @type {any} */ l) => l.is_packet_loss ? 0 : l.latency_ms);
@@ -148,14 +256,22 @@
     </div>
 
     <!-- Ping Animation -->
-    <div class="px-4 py-2 border-b border-[var(--color-border-glass)] bg-black/20">
-        <PingAnimation latencyMs={latestLatency} isPacketLoss={latestPacketLoss} />
-    </div>
+    {#if animationVisible}
+        <div class="px-4 py-2 border-b border-[var(--color-border-glass)] bg-black/20">
+            <PingAnimation latencyMs={latestLatency} isPacketLoss={latestPacketLoss} />
+        </div>
+    {/if}
 
     <!-- Chart -->
-    {#if showChart && chartData.length > 2}
+    {#if chartVisible}
         <div class="px-4 py-3 h-[140px] border-b border-[var(--color-border-glass)]">
-            <LatencyChart data={chartData} />
+            {#if chartData.length > 0}
+                <LatencyChart data={chartData} />
+            {:else}
+                <div class="flex h-full items-center justify-center rounded-lg border border-dashed border-[var(--color-border-glass)] bg-black/10 text-center text-xs text-[var(--color-text-muted)]">
+                    Waiting for ping history...
+                </div>
+            {/if}
         </div>
     {/if}
 
@@ -209,6 +325,24 @@
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
             </button>
 
+            <!-- Toggle Animation -->
+            <button
+                onclick={() => showAnimation = !showAnimation}
+                class="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-teal-300 hover:bg-teal-500/10 transition-all cursor-pointer"
+                title="Toggle animation"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h5m10 0h5M12 2v5m0 10v5"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+
+            <!-- Export CSV -->
+            <button
+                onclick={() => showExportPanel = !showExportPanel}
+                class="p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-emerald-300 hover:bg-emerald-500/10 transition-all cursor-pointer"
+                title="Export CSV"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            </button>
+
             <!-- Delete -->
             <button
                 onclick={handleDelete}
@@ -219,6 +353,44 @@
             </button>
         </div>
     </div>
+
+    {#if showExportPanel}
+        <div class="border-t border-[var(--color-border-glass)] bg-black/15 px-4 py-3">
+            <div class="flex flex-col gap-3">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <p class="text-xs font-semibold text-white">Export Ping Logs</p>
+                        <p class="text-[10px] text-[var(--color-text-muted)]">Choose a date/time range and download this monitor's ping history as CSV.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <label class="flex flex-col gap-1">
+                        <span class="text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-muted)]">Start</span>
+                        <input bind:value={exportStart} type="datetime-local" class="rounded-lg border border-[var(--color-border-glass)] bg-black/20 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-cyan-500/40" />
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-muted)]">End</span>
+                        <input bind:value={exportEnd} type="datetime-local" class="rounded-lg border border-[var(--color-border-glass)] bg-black/20 px-3 py-2 text-xs text-white outline-none transition-colors focus:border-cyan-500/40" />
+                    </label>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick={() => applyExportPreset('1h')} class="rounded-lg border border-[var(--color-border-glass)] bg-white/5 px-2.5 py-1 text-[10px] font-medium text-[var(--color-text-muted)] transition-colors hover:border-cyan-500/30 hover:text-cyan-300">Last 1 Hour</button>
+                    <button type="button" onclick={() => applyExportPreset('24h')} class="rounded-lg border border-[var(--color-border-glass)] bg-white/5 px-2.5 py-1 text-[10px] font-medium text-[var(--color-text-muted)] transition-colors hover:border-cyan-500/30 hover:text-cyan-300">Last 24 Hours</button>
+                    <button type="button" onclick={() => applyExportPreset('7d')} class="rounded-lg border border-[var(--color-border-glass)] bg-white/5 px-2.5 py-1 text-[10px] font-medium text-[var(--color-text-muted)] transition-colors hover:border-cyan-500/30 hover:text-cyan-300">Last 7 Days</button>
+                </div>
+                <div class="flex justify-end">
+                    <button
+                        onclick={handleExportCsv}
+                        disabled={exportLoading}
+                        class="inline-flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/15 px-3 py-2 text-xs font-medium text-emerald-300 transition-all hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+                        {exportLoading ? 'Exporting...' : 'Download CSV'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
 
     <!-- Info bar -->
     <div class="px-4 py-2 bg-black/20 flex items-center justify-between text-[10px] text-[var(--color-text-muted)]">

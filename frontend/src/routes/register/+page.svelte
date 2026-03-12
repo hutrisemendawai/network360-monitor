@@ -8,6 +8,7 @@
     let error = $state('');
     let loading = $state(false);
 
+    /** @param {SubmitEvent} e */
     async function handleRegister(e) {
         e.preventDefault();
         error = '';
@@ -28,7 +29,7 @@
             await auth.register(email, password, passwordConfirm);
             goto('/');
         } catch (err) {
-            error = err.message || 'Registration failed.';
+            error = err instanceof Error ? err.message : 'Registration failed.';
         } finally {
             loading = false;
         }
