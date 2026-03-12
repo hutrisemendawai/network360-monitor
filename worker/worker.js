@@ -13,8 +13,12 @@
 
 import PocketBase from 'pocketbase';
 import ping from 'ping';
+import { EventSource } from 'eventsource';
 
 const PB_URL = 'http://127.0.0.1:8090';
+
+// PocketBase realtime in Node requires an EventSource implementation.
+global.EventSource = EventSource;
 
 /** @type {Map<string, { timer: number, running: boolean }>} */
 const activeWorkers = new Map();

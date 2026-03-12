@@ -43,57 +43,57 @@ async function setup() {
             await pb.collections.create({
                 name: 'monitors',
                 type: 'base',
-                schema: [
+                fields: [
                     {
                         name: 'user',
                         type: 'relation',
                         required: true,
-                        options: {
-                            collectionId: '_pb_users_auth_',
-                            cascadeDelete: true,
-                            maxSelect: 1,
-                            minSelect: 1
-                        }
+                        collectionId: '_pb_users_auth_',
+                        cascadeDelete: true,
+                        maxSelect: 1,
+                        minSelect: 1
                     },
                     {
                         name: 'name',
                         type: 'text',
                         required: true,
-                        options: { min: 1, max: 200 }
+                        min: 1,
+                        max: 200
                     },
                     {
                         name: 'target_host',
                         type: 'text',
                         required: true,
-                        options: { min: 1, max: 255 }
+                        min: 1,
+                        max: 255
                     },
                     {
                         name: 'interval_ms',
                         type: 'number',
                         required: true,
-                        options: { min: 500, max: 60000 }
+                        min: 500,
+                        max: 60000
                     },
                     {
                         name: 'alert_threshold_sec',
                         type: 'number',
                         required: true,
-                        options: { min: 1, max: 300 }
+                        min: 1,
+                        max: 300
                     },
                     {
                         name: 'status',
                         type: 'select',
                         required: true,
-                        options: {
-                            values: ['running', 'stopped'],
-                            maxSelect: 1
-                        }
+                        values: ['running', 'stopped'],
+                        maxSelect: 1
                     }
                 ],
-                listRule: '@request.auth.id = user.id',
-                viewRule: '@request.auth.id = user.id',
-                createRule: '@request.auth.id != ""',
-                updateRule: '@request.auth.id = user.id',
-                deleteRule: '@request.auth.id = user.id'
+                listRule: 'user = @request.auth.id',
+                viewRule: 'user = @request.auth.id',
+                createRule: '@request.auth.id != "" && user = @request.auth.id',
+                updateRule: 'user = @request.auth.id',
+                deleteRule: 'user = @request.auth.id'
             });
             console.log('✅ "monitors" collection created!\n');
         }
@@ -109,23 +109,21 @@ async function setup() {
             await pb.collections.create({
                 name: 'ping_logs',
                 type: 'base',
-                schema: [
+                fields: [
                     {
                         name: 'monitor',
                         type: 'relation',
                         required: true,
-                        options: {
-                            collectionId: monitorsCollection.id,
-                            cascadeDelete: true,
-                            maxSelect: 1,
-                            minSelect: 1
-                        }
+                        collectionId: monitorsCollection.id,
+                        cascadeDelete: true,
+                        maxSelect: 1,
+                        minSelect: 1
                     },
                     {
                         name: 'latency_ms',
                         type: 'number',
                         required: false,
-                        options: { min: 0 }
+                        min: 0
                     },
                     {
                         name: 'is_packet_loss',
@@ -133,8 +131,8 @@ async function setup() {
                         required: false
                     }
                 ],
-                listRule: '@request.auth.id != ""',
-                viewRule: '@request.auth.id != ""',
+                listRule: 'monitor.user = @request.auth.id',
+                viewRule: 'monitor.user = @request.auth.id',
                 createRule: null,  // Only backend/admin can create
                 updateRule: null,
                 deleteRule: null
