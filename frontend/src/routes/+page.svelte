@@ -4,18 +4,18 @@
     import AddMonitorModal from '$lib/components/AddMonitorModal.svelte';
     import { monitors } from '$lib/stores/monitors.js';
 
-    let monitorList = $derived.by(() => {
-        let val;
-        monitors.subscribe(v => val = v)();
-        return val;
-    });
+    /** @type {import('pocketbase').RecordModel[]} */
+    let monitorList = $state([]);
 
     let showAddModal = $state(false);
     let editingMonitor = $state(null);
 
     onMount(async () => {
+        // Subscribe to store so monitorList stays reactive
+        const unsub = monitors.subscribe(v => { monitorList = v; });
         await monitors.load();
         await monitors.subscribeRealtime();
+        return unsub;
     });
 
     onDestroy(() => {

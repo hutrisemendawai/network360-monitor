@@ -1,16 +1,26 @@
 <script>
     import { toast } from '$lib/stores/toast.js';
+    import { onMount } from 'svelte';
+    import { onDestroy } from 'svelte';
 
     /** @type {import('$lib/stores/toast.js').Toast[]} */
-    let toasts = $derived.by(() => {
-        /** @type {any} */
-        let val;
-        toast.subscribe(v => val = v)();
-        return val;
+    let toasts = $state([]);
+
+    /** @type {(() => void) | undefined} */
+    let unsub;
+
+    onMount(() => {
+        unsub = toast.subscribe(v => {
+            toasts = v;
+        });
+    });
+
+    onDestroy(() => {
+        unsub?.();
     });
 </script>
 
-{#if toasts?.length > 0}
+{#if toasts.length > 0}
 <div class="fixed top-20 right-4 z-[100] flex flex-col gap-3 w-96 max-w-[calc(100vw-2rem)]">
     {#each toasts as t (t.id)}
         <div

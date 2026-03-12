@@ -12,58 +12,68 @@
 
     let mounted = $state(false);
 
+    // Use Svelte's $store auto-subscription syntax for reactivity
+    // These are re-read reactively on every change
+    let isLoggedIn = $state(false);
+    let isLoading = $state(true);
+    /** @type {any} */
+    let user = $state(null);
+
+    /** @param {any} monitor */
+    function openEdit(monitor) {
+        // Function body for openEdit goes here, if any.
+        // The instruction only provided the signature and type annotation.
+    }
+
     onMount(() => {
         auth.init();
         mounted = true;
+
+        // Subscribe and track auth state reactively
+        const unsub = auth.subscribe(v => {
+            isLoggedIn = v.isLoggedIn;
+            isLoading = v.isLoading;
+            user = v.user;
+        });
+
+        return unsub;
     });
 
-    // Auth guard
-    let authState = $derived.by(() => {
-        let val;
-        auth.subscribe(v => val = v)();
-        return val;
-    });
-
-    let currentPath = $derived.by(() => {
-        let val;
-        page.subscribe(v => val = v?.url?.pathname)();
-        return val;
-    });
-
-    let publicPaths = ['/login', '/register'];
+    const publicPaths = ['/login', '/register'];
 
     $effect(() => {
         if (!mounted) return;
-        if (authState?.isLoading) return;
+        if (isLoading) return;
 
-        if (!authState?.isLoggedIn && !publicPaths.includes(currentPath)) {
+        const path = $page.url.pathname;
+        if (!isLoggedIn && !publicPaths.includes(path)) {
             goto('/login');
         }
     });
 </script>
 
 <div class="min-h-screen flex flex-col">
-    {#if authState?.isLoggedIn}
-        <Navbar />
+    {#if isLoggedIn}
+        <Navbar {user} />
     {/if}
 
     <Toast />
 
-    <main class="flex-1 {authState?.isLoggedIn ? 'pt-20' : ''}">
-        {#if mounted && !authState?.isLoading}
+    <main class="flex-1 {isLoggedIn ? 'pt-20' : ''}">
+        {#if mounted && !isLoading}
             {@render children()}
         {:else}
             <!-- Loading state -->
             <div class="flex items-center justify-center min-h-screen">
                 <div class="flex flex-col items-center gap-4">
-                    <div class="h-10 w-10 border-3 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
+                    <div class="h-10 w-10 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin"></div>
                     <span class="text-sm text-[var(--color-text-muted)]">Loading...</span>
                 </div>
             </div>
         {/if}
     </main>
 
-    {#if authState?.isLoggedIn}
+    {#if isLoggedIn}
         <Footer />
     {/if}
 </div>

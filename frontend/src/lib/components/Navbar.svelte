@@ -1,14 +1,9 @@
 <script>
-    import { auth } from '$lib/stores/auth.js';
     import { goto } from '$app/navigation';
+    import { auth } from '$lib/stores/auth.js';
 
-    /** @type {{ isLoggedIn: boolean, user: any, isLoading: boolean } | undefined} */
-    let authState = $derived.by(() => {
-        /** @type {any} */
-        let val;
-        auth.subscribe(v => val = v)();
-        return val;
-    });
+    /** @type {{ user?: any }} */
+    let { user } = $props();
 
     function logout() {
         auth.logout();
@@ -35,22 +30,20 @@
             </a>
 
             <!-- User -->
-            {#if authState?.isLoggedIn}
-                <div class="flex items-center gap-4">
-                    <div class="hidden sm:flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
-                        <div class="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
-                        <span>{authState.user?.email}</span>
-                    </div>
-                    <button onclick={logout} class="btn-ghost text-xs">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="mr-1.5 inline h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                            <polyline points="16 17 21 12 16 7"/>
-                            <line x1="21" y1="12" x2="9" y2="12"/>
-                        </svg>
-                        Logout
-                    </button>
+            <div class="flex items-center gap-4">
+                <div class="hidden sm:flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
+                    <div class="h-2 w-2 rounded-full bg-green-400 animate-pulse"></div>
+                    <span>{user?.email ?? ''}</span>
                 </div>
-            {/if}
+                <button onclick={logout} class="btn-ghost text-xs">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mr-1.5 inline h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    Logout
+                </button>
+            </div>
         </div>
     </div>
 </nav>
