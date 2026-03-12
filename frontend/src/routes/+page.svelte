@@ -14,6 +14,9 @@
     let showAllCharts = $state(true);
     let showAllAnimations = $state(true);
     let showExportPanel = $state(false);
+    let searchQuery = $state('');
+    let currentPage = $state(1);
+    const ITEMS_PER_PAGE = 21;
     let exportLoading = $state(false);
     let exportStart = $state('');
     let exportEnd = $state('');
@@ -159,6 +162,29 @@
         }
     }
 
+    let filteredMonitorList = $derived(
+        searchQuery.trim() === ''
+            ? monitorList
+            : monitorList.filter(m => m.name?.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    );
+
+    // Reset to page 1 whenever the search query changes
+    $effect(() => { searchQuery; currentPage = 1; });
+
+    let totalPages = $derived(Math.max(1, Math.ceil(filteredMonitorList.length / ITEMS_PER_PAGE)));
+
+    let paginatedMonitorList = $derived(
+        filteredMonitorList.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+    );
+
+    /** @returns {(number | null)[]} */
+    let pageNumbers = $derived.by(() => {
+        if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+        if (currentPage <= 4) return [1, 2, 3, 4, 5, null, totalPages];
+        if (currentPage >= totalPages - 3) return [1, null, totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        return [1, null, currentPage - 1, currentPage, currentPage + 1, null, totalPages];
+    });
+
     // Stats derived from monitor list
     let stats = $derived.by(() => {
         const list = monitorList || [];
@@ -226,19 +252,12 @@
         </div>
 
         <!-- Stats bar -->
-        <div class="mt-3 grid grid-cols-3 gap-2">
-            <div class="glass-card p-2.5 text-center">
-                <p class="text-lg font-bold text-white">{stats.total}</p>
-                <p class="text-[10px] text-[var(--color-text-muted)] mt-0">Total Monitors</p>
-            </div>
-            <div class="glass-card p-2.5 text-center">
-                <p class="text-lg font-bold text-green-400">{stats.running}</p>
-                <p class="text-[10px] text-[var(--color-text-muted)] mt-0">Running</p>
-            </div>
-            <div class="glass-card p-2.5 text-center">
-                <p class="text-lg font-bold text-gray-400">{stats.stopped}</p>
-                <p class="text-[10px] text-[var(--color-text-muted)] mt-0">Stopped</p>
-            </div>
+        <div class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--color-text-muted)]">
+            <span><span class="font-semibold text-white">{stats.total}</span> total</span>
+            <span class="opacity-30">·</span>
+            <span class="flex items-center gap-1"><span class="h-1.5 w-1.5 rounded-full bg-green-400"></span><span class="font-semibold text-green-400">{stats.running}</span> running</span>
+            <span class="opacity-30">·</span>
+            <span><span class="font-semibold text-gray-400">{stats.stopped}</span> stopped</span>
         </div>
 
         {#if showExportPanel}
@@ -274,6 +293,30 @@
         {/if}
     </div>
 
+    <!-- Search bar -->
+    {#if monitorList && monitorList.length > 0}
+        <div class="mb-5 relative">
+            <div class="pointer-events-none absolute inset-y-0 left-3 flex items-center">
+                <svg class="h-4 w-4 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <input
+                type="search"
+                bind:value={searchQuery}
+                placeholder="Search monitors…"
+                class="w-full rounded-xl border border-[var(--color-border-glass)] bg-black/20 py-2 pl-9 pr-9 text-sm text-white placeholder-[var(--color-text-muted)] outline-none transition-colors focus:border-cyan-500/40 focus:bg-black/30"
+            />
+            {#if searchQuery}
+                <button
+                    onclick={() => searchQuery = ''}
+                    class="absolute inset-y-0 right-3 flex items-center text-[var(--color-text-muted)] hover:text-white transition-colors cursor-pointer"
+                    aria-label="Clear search"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+            {/if}
+        </div>
+    {/if}
+
     <!-- Monitor grid -->
     {#if !monitorList || monitorList.length === 0}
         <div class="glass-card p-12 text-center animate-fade-in">
@@ -293,14 +336,61 @@
                 Add Your First Monitor
             </button>
         </div>
+    {:else if filteredMonitorList.length === 0}
+        <div class="glass-card p-12 text-center animate-fade-in">
+            <div class="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 mb-4">
+                <svg class="h-8 w-8 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </div>
+            <h3 class="text-lg font-semibold text-white mb-2">No matches found</h3>
+            <p class="text-sm text-[var(--color-text-muted)] mb-4">No monitors match "<span class="text-cyan-300">{searchQuery}</span>"</p>
+            <button onclick={() => searchQuery = ''} class="btn-ghost text-xs inline-flex items-center gap-1.5">Clear search</button>
+        </div>
     {:else}
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {#each monitorList as monitor (monitor.id)}
+            {#each paginatedMonitorList as monitor (monitor.id)}
                 <div class="animate-fade-in">
                     <MonitorCard {monitor} {showAllCharts} {showAllAnimations} onEdit={() => openEdit(monitor)} />
                 </div>
             {/each}
         </div>
+
+        {#if totalPages > 1}
+            <div class="mt-6 flex flex-col items-center gap-3">
+                <div class="flex items-center gap-1">
+                    <button
+                        onclick={() => currentPage--}
+                        disabled={currentPage === 1}
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--color-border-glass)] bg-white/5 text-[var(--color-text-muted)] transition-colors hover:border-cyan-500/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Previous page"
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+                    </button>
+
+                    {#each pageNumbers as page}
+                        {#if page === null}
+                            <span class="flex h-8 w-8 items-center justify-center text-xs text-[var(--color-text-muted)] opacity-50">…</span>
+                        {:else}
+                            <button
+                                onclick={() => currentPage = page}
+                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border text-xs font-medium transition-colors {currentPage === page ? 'border-cyan-500/40 bg-cyan-500/20 text-cyan-300' : 'border-[var(--color-border-glass)] bg-white/5 text-[var(--color-text-muted)] hover:border-cyan-500/30 hover:text-cyan-300'}"
+                            >{page}</button>
+                        {/if}
+                    {/each}
+
+                    <button
+                        onclick={() => currentPage++}
+                        disabled={currentPage === totalPages}
+                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--color-border-glass)] bg-white/5 text-[var(--color-text-muted)] transition-colors hover:border-cyan-500/30 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-30"
+                        aria-label="Next page"
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                </div>
+                <p class="text-[11px] text-[var(--color-text-muted)]">
+                    Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredMonitorList.length)} of {filteredMonitorList.length}
+                </p>
+            </div>
+        {/if}
     {/if}
 
     <!-- Add/Edit Modal -->
