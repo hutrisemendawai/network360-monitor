@@ -21,47 +21,47 @@
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Features
 
-### 🖥️ Dashboard Real-Time
-- **Card-based monitoring** — Setiap target host ditampilkan dalam card interaktif dengan desain glassmorphism premium
-- **Status indikator** — 🟢 Healthy, 🟡 Spike, 🔴 Down / Packet Loss terlihat langsung tanpa perlu klik
-- **Stats overview** — Ringkasan jumlah monitor total, yang berjalan, dan yang berhenti
+### 🖥️ Real-Time Dashboard
+- **Card-based monitoring** — Each target host is displayed in an interactive card with a premium glassmorphism design
+- **Status indicators** — 🟢 Healthy, 🟡 Spike, 🔴 Down / Packet Loss — visible at a glance
+- **Stats overview** — Summary of total, running, and stopped monitors
 
-### 🎯 Animasi Perjalanan Ping (GSAP)
-- Visual animasi paket data bergerak dari ikon **[PC]** ke **[Server]** melalui garis koneksi
-- **Kecepatan animasi terikat ke latency** — latency rendah = cepat, latency tinggi = lambat
-- **Packet loss** — paket berhenti di tengah, bergetar (shake effect), dan memudar menjadi merah
+### 🎯 Ping Packet Animation (GSAP)
+- Visual animation of a data packet traveling from **[PC]** to **[Server]** along a connection line
+- **Animation speed tied to latency** — low latency = fast, high latency = slow
+- **Packet loss effect** — packet stops midway, shakes, and fades to red
 
-### 📊 Grafik Latency Dinamis (Chart.js)
-- **Line chart real-time** menampilkan 50 ping terakhir
-- **Moving Average (garis hijau)** — Rata-rata pergerakan dari seluruh data, update otomatis
-- **Spike Threshold Band (area kuning)** — Area +20% di atas rata-rata sebagai indikator spike
-- **Warna segmen dinamis** — Hijau (normal), kuning (spike), merah (packet loss)
+### 📊 Dynamic Latency Charts (Chart.js)
+- **Real-time line chart** displaying the last 50 pings
+- **Moving average line (green)** — rolling average calculated from all data points, auto-updated
+- **Spike threshold band (yellow)** — +20% above average as a spike warning zone
+- **Dynamic segment colors** — green (normal), yellow (spike), red (packet loss)
 
 ### 🔔 Smart Alerting System
-- **Consecutive loss tracking** — Menghitung packet loss berturut-turut per monitor
-- **Card pulse animation** — Card berkedip merah terang saat jumlah packet loss melebihi threshold
-- **Toast notifications** — Notifikasi muncul di layar dengan pesan detail saat alert terpicu
-- **User-configurable threshold** — Setiap monitor bisa memiliki batas alert berbeda
+- **Consecutive loss tracking** — counts sequential packet losses per monitor
+- **Card pulse animation** — card flashes bright red when losses exceed the configured threshold
+- **Toast notifications** — on-screen alerts with detailed messages when threshold is breached
+- **User-configurable threshold** — each monitor can have its own alert tolerance
 
-### 🔐 Autentikasi
-- Login & Register dengan email/password via PocketBase Auth
-- Session management otomatis
-- Auth guard — redirect ke login jika belum terautentikasi
+### 🔐 Authentication
+- Login & Register with email/password via PocketBase Auth
+- Automatic session management
+- Auth guard — redirects to login if not authenticated
 
-### ⚙️ CRUD Monitor
-- **Add Monitor** — Tambahkan target baru dengan nama, host (IP/domain), interval ping, dan threshold alert
-- **Edit Monitor** — Update konfigurasi monitor kapan saja
-- **Delete Monitor** — Hapus monitor yang tidak diperlukan
-- **Start / Stop / Restart** — Kontrol status pingting langsung dari dashboard
+### ⚙️ Monitor CRUD
+- **Add Monitor** — Add a new target with name, host (IP/domain), ping interval, and alert threshold
+- **Edit Monitor** — Update any monitor's configuration at any time
+- **Delete Monitor** — Remove monitors that are no longer needed
+- **Start / Stop / Restart** — Control ping state directly from the dashboard
 
 ---
 
-## 🏗️ Arsitektur
+## 🏗️ Architecture
 
 ```
-Network360/
+network360/
 ├── frontend/          ← SvelteKit + TailwindCSS v4 (UI Dashboard)
 ├── worker/            ← Node.js Ping Engine (ICMP Worker)
 └── pocketbase/        ← PocketBase (Auth + DB + Realtime SSE)
@@ -69,14 +69,14 @@ Network360/
 
 ### Tech Stack
 
-| Komponen | Teknologi | Fungsi |
-|----------|-----------|--------|
-| **Frontend** | SvelteKit (Svelte 5) | SSR + Client-side routing, reactive UI |
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| **Frontend** | SvelteKit (Svelte 5) | SSR + client-side routing, reactive UI |
 | **Styling** | TailwindCSS v4 | Dark theme, glassmorphism, responsive layout |
-| **Animasi** | GSAP | Animasi perjalanan paket ping |
-| **Grafik** | Chart.js | Line chart real-time dengan moving avg & spike band |
-| **Backend** | PocketBase | Auth, database (SQLite), real-time SSE subscriptions |
-| **Worker** | Node.js + `ping` | ICMP ping engine yang menulis ke PocketBase |
+| **Animation** | GSAP | Ping packet travel animation |
+| **Charts** | Chart.js | Real-time line chart with moving avg & spike band |
+| **Backend** | PocketBase | Auth, SQLite database, real-time SSE subscriptions |
+| **Worker** | Node.js + `ping` | ICMP ping engine that writes results to PocketBase |
 
 ### Data Flow
 
@@ -88,37 +88,37 @@ Network360/
               ▼
          [PocketBase]  ←───── 3. Worker writes ping_logs
               │
-              │  4. SSE broadcast ke semua subscribers
+              │  4. SSE broadcast to all subscribers
               ▼
          Dashboard updates:
-         • Animasi GSAP bergerak
-         • Chart.js menambah data point
-         • Status indikator berubah
-         • Alert terpicu jika threshold terlampaui
+         • GSAP animation fires
+         • Chart.js appends new data point
+         • Status indicator changes
+         • Alert triggered if threshold exceeded
 ```
 
 ---
 
 ## 📦 Database Schema
 
-### `monitors` — Konfigurasi target ping
+### `monitors` — Ping target configuration
 
-| Field | Type | Deskripsi |
-|-------|------|-----------|
-| `user` | Relation → users | Pemilik monitor |
-| `name` | Text | Nama monitor, misal "Server DB Utama" |
-| `target_host` | Text | IP atau domain target (misal `1.1.1.1`) |
-| `interval_ms` | Number | Jeda antar ping dalam milliseconds |
-| `alert_threshold_sec` | Number | Batas waktu (detik) sebelum alert packet loss |
+| Field | Type | Description |
+|-------|------|-------------|
+| `user` | Relation → users | Owner of the monitor |
+| `name` | Text | Monitor label, e.g. "Main DB Server" |
+| `target_host` | Text | IP or domain (e.g. `1.1.1.1`) |
+| `interval_ms` | Number | Ping interval in milliseconds |
+| `alert_threshold_sec` | Number | Seconds of consecutive loss before alert fires |
 | `status` | Select | `running` / `stopped` |
 
-### `ping_logs` — Hasil ping (real-time subscribed)
+### `ping_logs` — Ping results (real-time subscribed)
 
-| Field | Type | Deskripsi |
-|-------|------|-----------|
-| `monitor` | Relation → monitors | Monitor yang menghasilkan log ini |
-| `latency_ms` | Number | Latency dalam milliseconds |
-| `is_packet_loss` | Boolean | `true` jika ping timeout |
+| Field | Type | Description |
+|-------|------|-------------|
+| `monitor` | Relation → monitors | The monitor that produced this log |
+| `latency_ms` | Number | Latency in milliseconds |
+| `is_packet_loss` | Boolean | `true` if ping timed out |
 
 ---
 
@@ -127,36 +127,36 @@ Network360/
 ### Prerequisites
 
 - **Node.js** v18+
-- **PocketBase** — Download dari [pocketbase.io](https://pocketbase.io/docs/) untuk OS Anda
+- **PocketBase** — Download from [pocketbase.io](https://pocketbase.io/docs/) for your OS
 
-### 1. Clone Repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/hutrisemendawai/network360.git
 cd network360
 ```
 
-### 2. Setup PocketBase
+### 2. Set Up PocketBase
 
 ```bash
-# Taruh pocketbase.exe di folder pocketbase/
+# Place pocketbase.exe in the pocketbase/ folder
 cd pocketbase
 
-# Jalankan PocketBase pertama kali
+# Start PocketBase
 ./pocketbase serve
 
-# Buka http://127.0.0.1:8090/_/ di browser
-# Buat akun superuser
+# Open http://127.0.0.1:8090/_/ in your browser
+# Create a superuser account
 ```
 
-### 3. Buat Collections
+### 3. Create Collections
 
 ```bash
-# Masih di folder pocketbase/
+# Still in the pocketbase/ folder
 node setup.js <superuser-email> <superuser-password>
 ```
 
-Output yang diharapkan:
+Expected output:
 ```
 🔐 Authenticating as superuser...
 ✅ Authenticated!
@@ -167,7 +167,7 @@ Output yang diharapkan:
 🎉 Setup complete!
 ```
 
-### 4. Jalankan Frontend
+### 4. Run the Frontend
 
 ```bash
 cd frontend
@@ -175,33 +175,33 @@ npm install
 npm run dev
 ```
 
-Buka **http://localhost:5173** di browser.
+Open **http://localhost:5173** in your browser.
 
-### 5. Jalankan Ping Worker
+### 5. Run the Ping Worker
 
 ```bash
-# Di terminal terpisah
+# In a separate terminal
 cd worker
 npm install
 node worker.js <superuser-email> <superuser-password>
 ```
 
-Worker akan mulai mem-ping semua monitor yang berstatus `running`.
+The worker will start pinging all monitors with status `running`.
 
 ---
 
-## 🎨 Desain UI
+## 🎨 UI Design
 
-- **Dark theme** dengan background `#0a0e1a`
+- **Dark theme** with `#0a0e1a` background
 - **Glassmorphism cards** — backdrop blur + semi-transparent borders
-- **Accent colors** — Cyan (`#06b6d4`) untuk healthy, Amber (`#f59e0b`) untuk spike, Red (`#ef4444`) untuk down
-- **Typography** — Google Fonts Inter untuk keterbacaan optimal
+- **Accent colors** — Cyan (`#06b6d4`) for healthy, Amber (`#f59e0b`) for spikes, Red (`#ef4444`) for down
+- **Typography** — Google Fonts Inter for clean readability
 - **Micro-animations** — Hover effects, fade-in transitions, pulse alerts
-- **Responsive** — Grid layout yang adaptif untuk mobile, tablet, dan desktop
+- **Responsive** — Adaptive grid layout for mobile, tablet, and desktop
 
 ---
 
-## 📁 Struktur Folder
+## 📁 Project Structure
 
 ```
 network360/
@@ -209,33 +209,33 @@ network360/
 │   ├── src/
 │   │   ├── lib/
 │   │   │   ├── components/
-│   │   │   │   ├── AddMonitorModal.svelte   # Form tambah/edit monitor
-│   │   │   │   ├── Footer.svelte            # Footer dengan credit
-│   │   │   │   ├── LatencyChart.svelte       # Chart.js real-time chart
-│   │   │   │   ├── MonitorCard.svelte        # Card utama per monitor
-│   │   │   │   ├── Navbar.svelte             # Navigation bar
-│   │   │   │   ├── PingAnimation.svelte      # Animasi GSAP ping
-│   │   │   │   └── Toast.svelte              # Toast notifications
+│   │   │   │   ├── AddMonitorModal.svelte   # Add/edit monitor form
+│   │   │   │   ├── Footer.svelte            # Footer with credit
+│   │   │   │   ├── LatencyChart.svelte      # Chart.js real-time chart
+│   │   │   │   ├── MonitorCard.svelte       # Main card per monitor
+│   │   │   │   ├── Navbar.svelte            # Navigation bar
+│   │   │   │   ├── PingAnimation.svelte     # GSAP ping animation
+│   │   │   │   └── Toast.svelte             # Toast notifications
 │   │   │   ├── stores/
-│   │   │   │   ├── auth.js                   # Auth state management
-│   │   │   │   ├── monitors.js               # Monitor CRUD + realtime
-│   │   │   │   └── toast.js                  # Toast notification store
-│   │   │   └── pb.js                         # PocketBase client instance
+│   │   │   │   ├── auth.js                  # Auth state management
+│   │   │   │   ├── monitors.js              # Monitor CRUD + realtime
+│   │   │   │   └── toast.js                 # Toast notification store
+│   │   │   └── pb.js                        # PocketBase client instance
 │   │   ├── routes/
-│   │   │   ├── login/+page.svelte            # Halaman login
-│   │   │   ├── register/+page.svelte         # Halaman register
-│   │   │   ├── +layout.svelte                # Root layout + auth guard
-│   │   │   └── +page.svelte                  # Dashboard utama
-│   │   ├── app.css                           # TailwindCSS v4 + custom theme
-│   │   └── app.html                          # HTML template + Inter font
+│   │   │   ├── login/+page.svelte           # Login page
+│   │   │   ├── register/+page.svelte        # Register page
+│   │   │   ├── +layout.svelte               # Root layout + auth guard
+│   │   │   └── +page.svelte                 # Main dashboard
+│   │   ├── app.css                          # TailwindCSS v4 + custom theme
+│   │   └── app.html                         # HTML template + Inter font
 │   ├── svelte.config.js
 │   ├── vite.config.js
 │   └── package.json
 ├── worker/
-│   ├── worker.js                             # Ping engine (Node.js)
+│   ├── worker.js                            # Ping engine (Node.js)
 │   └── package.json
 ├── pocketbase/
-│   ├── setup.js                              # Schema creation script
+│   ├── setup.js                             # Schema creation script
 │   └── package.json
 └── README.md
 ```
