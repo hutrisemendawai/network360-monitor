@@ -27,6 +27,7 @@
         error = '';
     });
 
+    /** @param {SubmitEvent} e */
     async function handleSubmit(e) {
         e.preventDefault();
         if (!name.trim() || !target_host.trim()) {
@@ -55,12 +56,13 @@
 
             onClose();
         } catch (err) {
-            error = err.message || 'Failed to save monitor.';
+            error = /** @type {Error} */ (err).message || 'Failed to save monitor.';
         } finally {
             loading = false;
         }
     }
 
+    /** @param {MouseEvent} e */
     function handleBackdropClick(e) {
         if (e.target === e.currentTarget) onClose();
     }
@@ -82,6 +84,7 @@
             <button
                 onclick={onClose}
                 class="text-[var(--color-text-muted)] hover:text-white transition-colors cursor-pointer"
+                aria-label="Close modal"
             >
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path d="M6 18L18 6M6 6l12 12"/>

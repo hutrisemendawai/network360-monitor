@@ -2,7 +2,9 @@
     import { auth } from '$lib/stores/auth.js';
     import { goto } from '$app/navigation';
 
+    /** @type {{ isLoggedIn: boolean, user: any, isLoading: boolean } | undefined} */
     let authState = $derived.by(() => {
+        /** @type {any} */
         let val;
         auth.subscribe(v => val = v)();
         return val;

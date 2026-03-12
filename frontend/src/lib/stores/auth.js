@@ -26,10 +26,19 @@ function createAuthStore() {
                 isLoading: false
             });
         },
+        /**
+         * @param {string} email
+         * @param {string} password
+         */
         async login(email, password) {
             const authData = await pb.collection('users').authWithPassword(email, password);
             return authData;
         },
+        /**
+         * @param {string} email
+         * @param {string} password
+         * @param {string} passwordConfirm
+         */
         async register(email, password, passwordConfirm) {
             const user = await pb.collection('users').create({
                 email,

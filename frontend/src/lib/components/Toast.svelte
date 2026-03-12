@@ -1,7 +1,9 @@
 <script>
     import { toast } from '$lib/stores/toast.js';
 
+    /** @type {import('$lib/stores/toast.js').Toast[]} */
     let toasts = $derived.by(() => {
+        /** @type {any} */
         let val;
         toast.subscribe(v => val = v)();
         return val;
@@ -42,6 +44,7 @@
             <button
                 onclick={() => toast.dismiss(t.id)}
                 class="shrink-0 text-[var(--color-text-muted)] hover:text-white transition-colors cursor-pointer"
+                aria-label="Dismiss notification"
             >
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M6 18L18 6M6 6l12 12"/></svg>
             </button>

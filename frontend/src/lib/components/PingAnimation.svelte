@@ -5,11 +5,17 @@
     /** @type {{ latencyMs: number, isPacketLoss: boolean }} */
     let { latencyMs = 0, isPacketLoss = false } = $props();
 
+    /** @type {HTMLDivElement | undefined} */
     let pathLine;
+    /** @type {HTMLDivElement | undefined} */
     let dot;
+    /** @type {HTMLDivElement | undefined} */
     let pcIcon;
+    /** @type {HTMLDivElement | undefined} */
     let serverIcon;
+    /** @type {HTMLDivElement | undefined} */
     let container;
+    /** @type {gsap.core.Timeline | undefined} */
     let animTimeline;
 
     function animatePing() {
@@ -61,12 +67,14 @@
                 });
 
             // Flash server icon red
-            gsap.to(serverIcon, {
-                color: '#ef4444',
-                duration: 0.3,
-                yoyo: true,
-                repeat: 1
-            });
+            if (serverIcon) {
+                gsap.to(serverIcon, {
+                    color: '#ef4444',
+                    duration: 0.3,
+                    yoyo: true,
+                    repeat: 1
+                });
+            }
         } else {
             // Normal ping: speed proportional to latency
             const duration = Math.max(0.15, Math.min(latencyMs / 400, 2.5));
@@ -96,14 +104,16 @@
                 });
 
             // Pulse server icon on arrival
-            gsap.to(serverIcon, {
-                scale: 1.15,
-                duration: 0.15,
-                delay: duration,
-                yoyo: true,
-                repeat: 1,
-                ease: 'power2.out'
-            });
+            if (serverIcon) {
+                gsap.to(serverIcon, {
+                    scale: 1.15,
+                    duration: 0.15,
+                    delay: duration,
+                    yoyo: true,
+                    repeat: 1,
+                    ease: 'power2.out'
+                });
+            }
         }
     }
 

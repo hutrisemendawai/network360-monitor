@@ -10,6 +10,7 @@
 
     let latestLatency = $state(0);
     let latestPacketLoss = $state(false);
+    /** @type {number[]} */
     let chartData = $state([]);
     let loading = $state(false);
     let showChart = $state(true);
@@ -35,6 +36,7 @@
 
     let isAlerting = $derived(consecutiveLossCount >= Math.ceil((monitor.alert_threshold_sec * 1000) / monitor.interval_ms));
 
+    /** @param {CustomEvent} e */
     function handlePingLog(e) {
         const log = e.detail;
         if (log.monitor !== monitor.id) return;
@@ -61,7 +63,7 @@
                 await monitors.startMonitor(monitor.id);
             }
         } catch (err) {
-            toast.error(`Failed to update monitor: ${err.message}`);
+            toast.error(`Failed to update monitor: ${/** @type {Error} */ (err).message}`);
         } finally {
             loading = false;
         }
@@ -75,7 +77,7 @@
             await monitors.startMonitor(monitor.id);
             toast.success(`Monitor "${monitor.name}" restarted!`);
         } catch (err) {
-            toast.error(`Failed to restart: ${err.message}`);
+            toast.error(`Failed to restart: ${/** @type {Error} */ (err).message}`);
         } finally {
             loading = false;
         }
@@ -87,25 +89,28 @@
             await monitors.deleteMonitor(monitor.id);
             toast.success(`Monitor "${monitor.name}" deleted.`);
         } catch (err) {
-            toast.error(`Failed to delete: ${err.message}`);
+            toast.error(`Failed to delete: ${/** @type {Error} */ (err).message}`);
         }
     }
 
 
-    onMount(async () => {
+    onMount(() => {
         // Load initial ping history
-        const logs = await monitors.loadHistory(monitor.id, 50);
-        chartData = logs.map(l => l.is_packet_loss ? 0 : l.latency_ms);
-        if (logs.length > 0) {
-            const last = logs[logs.length - 1];
-            latestLatency = last.latency_ms;
-            latestPacketLoss = last.is_packet_loss;
-        }
+        monitors.loadHistory(monitor.id, 50).then((/** @type {any[]} */ logs) => {
+            chartData = logs.map((/** @type {any} */ l) => l.is_packet_loss ? 0 : l.latency_ms);
+            if (logs.length > 0) {
+                const last = logs[logs.length - 1];
+                latestLatency = last.latency_ms;
+                latestPacketLoss = last.is_packet_loss;
+            }
+        });
 
         // Listen for real-time ping logs
+        // @ts-ignore - CustomEvent handler
         window.addEventListener('ping-log', handlePingLog);
 
         return () => {
+            // @ts-ignore - CustomEvent handler
             window.removeEventListener('ping-log', handlePingLog);
         };
     });
