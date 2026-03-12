@@ -4,6 +4,7 @@
     import Toast from '$lib/components/Toast.svelte';
     import Footer from '$lib/components/Footer.svelte';
     import { auth } from '$lib/stores/auth.js';
+    import favicon from '$lib/../img/network360.ico';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import { page } from '$app/stores';
@@ -51,6 +52,10 @@
         }
     });
 </script>
+
+<svelte:head>
+    <link rel="icon" href={favicon} type="image/x-icon" />
+</svelte:head>
 
 <div class="min-h-screen flex flex-col">
     {#if isLoggedIn}

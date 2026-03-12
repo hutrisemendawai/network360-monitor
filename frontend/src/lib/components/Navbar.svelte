@@ -1,6 +1,7 @@
 <script>
     import { goto } from '$app/navigation';
     import { auth } from '$lib/stores/auth.js';
+    import logo from '$lib/../img/network360.png';
 
     /** @type {{ user?: any }} */
     let { user } = $props();
@@ -15,18 +16,8 @@
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
             <!-- Brand -->
-            <a href="/" class="flex items-center gap-3 group">
-                <div class="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-teal-500 shadow-lg shadow-cyan-500/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"/>
-                        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        <path d="M2 12h20"/>
-                    </svg>
-                    <div class="absolute inset-0 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-400 opacity-0 blur-md transition-opacity group-hover:opacity-50"></div>
-                </div>
-                <span class="text-lg font-bold tracking-tight">
-                    <span class="bg-gradient-to-r from-cyan-400 to-teal-400 bg-clip-text text-transparent">Network</span><span class="text-white">360</span>
-                </span>
+            <a href="/" class="flex items-center group">
+                <img src={logo} alt="Network360" class="h-10 w-auto transition-opacity group-hover:opacity-80" />
             </a>
 
             <!-- User -->
