@@ -10,6 +10,8 @@
 
     let latestLatency = $state(0);
     let latestPacketLoss = $state(false);
+    let latestTTL = $state(/** @type {number | null} */(null));
+    let latestJitter = $state(0);
     /** @type {number[]} */
     let chartData = $state([]);
     let loading = $state(false);
@@ -19,6 +21,7 @@
     let chartVisible = $derived(showAllCharts && showChart);
     let animationVisible = $derived(showAllAnimations && showAnimation);
     let showExportPanel = $state(false);
+    let showDPIPanel = $state(false);
     let exportLoading = $state(false);
     let exportStart = $state('');
     let exportEnd = $state('');
@@ -68,6 +71,15 @@
 
     let isAlerting = $derived(consecutiveLossCount >= Math.ceil((monitor.alert_threshold_sec * 1000) / monitor.interval_ms));
 
+    // Parse DPI fields from monitor record
+    let dpiProtocols = $derived.by(() => {
+        try { return JSON.parse(monitor.dpi_protocols || '[]'); } catch { return []; }
+    });
+    let dpiOpenPorts = $derived.by(() => {
+        try { return JSON.parse(monitor.dpi_open_ports || '[]'); } catch { return []; }
+    });
+    let dpiQosClass = $derived(monitor.dpi_qos_class || '');
+
     /** @param {CustomEvent} e */
     function handlePingLog(e) {
         const log = e.detail;
@@ -75,6 +87,8 @@
 
         latestLatency = log.latency_ms;
         latestPacketLoss = log.is_packet_loss;
+        if (log.ttl != null) latestTTL = log.ttl;
+        if (!log.is_packet_loss && log.jitter_ms != null) latestJitter = log.jitter_ms;
 
         if (log.is_packet_loss) {
             consecutiveLossCount++;
@@ -172,12 +186,14 @@
             }
 
             const rows = [
-                ['monitor_name', 'target_host', 'timestamp', 'latency_ms', 'is_packet_loss'],
+                ['monitor_name', 'target_host', 'timestamp', 'latency_ms', 'ttl', 'jitter_ms', 'is_packet_loss'],
                 ...logs.map((log) => [
                     monitor.name,
                     monitor.target_host,
                     log.logged_at || log.created || log.updated || '',
                     log.latency_ms ?? 0,
+                    log.ttl ?? '',
+                    log.jitter_ms ?? 0,
                     log.is_packet_loss ? 'true' : 'false'
                 ])
             ];
@@ -210,6 +226,8 @@
                 const last = logs[logs.length - 1];
                 latestLatency = last.latency_ms;
                 latestPacketLoss = last.is_packet_loss;
+                if (last.ttl != null) latestTTL = last.ttl;
+                if (last.jitter_ms != null) latestJitter = last.jitter_ms;
             }
         });
 
@@ -240,7 +258,7 @@
             </div>
         </div>
 
-        <!-- Latency display -->
+        <!-- Latency + TTL + Jitter display -->
         {#if monitor.status === 'running'}
             <div class="mt-2 flex items-baseline gap-1">
                 {#if latestPacketLoss}
@@ -252,6 +270,26 @@
                     <span class="text-lg text-[var(--color-text-muted)]">Waiting...</span>
                 {/if}
             </div>
+            <!-- TTL / Jitter badges -->
+            {#if latestLatency > 0 || latestTTL !== null}
+                <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    {#if latestTTL !== null}
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/10 text-violet-300 border border-violet-500/20">
+                            TTL {latestTTL}
+                        </span>
+                    {/if}
+                    {#if latestJitter > 0}
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono {latestJitter > 20 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'}">
+                            ±{latestJitter.toFixed(1)}ms jitter
+                        </span>
+                    {/if}
+                    {#if dpiQosClass}
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] bg-sky-500/10 text-sky-300 border border-sky-500/20">
+                            {dpiQosClass}
+                        </span>
+                    {/if}
+                </div>
+            {/if}
         {/if}
     </div>
 
@@ -334,6 +372,15 @@
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h5m10 0h5M12 2v5m0 10v5"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
 
+            <!-- DPI Panel toggle -->
+            <button
+                onclick={() => showDPIPanel = !showDPIPanel}
+                class="p-1.5 rounded-lg transition-all cursor-pointer {showDPIPanel ? 'text-sky-400 bg-sky-500/10' : 'text-[var(--color-text-muted)] hover:text-sky-400 hover:bg-sky-500/10'}"
+                title="Protocol Detection (DPI)"
+            >
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg>
+            </button>
+
             <!-- Export CSV -->
             <button
                 onclick={() => showExportPanel = !showExportPanel}
@@ -353,6 +400,43 @@
             </button>
         </div>
     </div>
+
+    <!-- DPI Panel -->
+    {#if showDPIPanel}
+        <div class="border-t border-[var(--color-border-glass)] bg-black/15 px-4 py-3">
+            <div class="flex flex-col gap-2.5">
+                <div class="flex items-center justify-between">
+                    <p class="text-xs font-semibold text-white">Protocol Detection (DPI)</p>
+                    {#if dpiQosClass}
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-sky-500/15 text-sky-300 border border-sky-500/20">{dpiQosClass}</span>
+                    {/if}
+                </div>
+
+                {#if dpiProtocols.length > 0}
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-muted)] mb-1.5">Detected Protocols</p>
+                        <div class="flex flex-wrap gap-1">
+                            {#each dpiProtocols as proto}
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/10 text-violet-300 border border-violet-500/20">{proto}</span>
+                            {/each}
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-[0.12em] text-[var(--color-text-muted)] mb-1.5">Open Ports</p>
+                        <div class="flex flex-wrap gap-1">
+                            {#each dpiOpenPorts as port}
+                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">{port}</span>
+                            {/each}
+                        </div>
+                    </div>
+                {:else if dpiQosClass}
+                    <p class="text-xs text-[var(--color-text-muted)]">No open TCP service ports detected — host responds to ICMP only.</p>
+                {:else}
+                    <p class="text-xs text-[var(--color-text-muted)]">No scan data yet. The worker will run a protocol scan shortly after the monitor starts.</p>
+                {/if}
+            </div>
+        </div>
+    {/if}
 
     {#if showExportPanel}
         <div class="border-t border-[var(--color-border-glass)] bg-black/15 px-4 py-3">
@@ -399,3 +483,4 @@
         <span>Pings: {chartData.length}</span>
     </div>
 </div>
+

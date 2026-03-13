@@ -96,6 +96,24 @@ async function setup() {
                         required: true,
                         values: ['running', 'stopped'],
                         maxSelect: 1
+                    },
+                    {
+                        name: 'dpi_protocols',
+                        type: 'text',
+                        required: false,
+                        max: 2000
+                    },
+                    {
+                        name: 'dpi_open_ports',
+                        type: 'text',
+                        required: false,
+                        max: 1000
+                    },
+                    {
+                        name: 'dpi_qos_class',
+                        type: 'text',
+                        required: false,
+                        max: 100
                     }
                 ],
                 listRule: 'user = @request.auth.id',
@@ -107,20 +125,57 @@ async function setup() {
             console.log('✅ "monitors" collection created!\n');
         }
 
+        // ===== Create / migrate 'monitors' DPI fields =====
+        if (existingCollections.includes('monitors')) {
+            const monitorsCollection = await pb.collections.getOne('monitors');
+            const existingFields = (monitorsCollection.fields || []).map(f => f.name);
+            const dpiFieldsToAdd = [];
+
+            if (!existingFields.includes('dpi_protocols')) {
+                dpiFieldsToAdd.push({ name: 'dpi_protocols', type: 'text', required: false, max: 2000 });
+            }
+            if (!existingFields.includes('dpi_open_ports')) {
+                dpiFieldsToAdd.push({ name: 'dpi_open_ports', type: 'text', required: false, max: 1000 });
+            }
+            if (!existingFields.includes('dpi_qos_class')) {
+                dpiFieldsToAdd.push({ name: 'dpi_qos_class', type: 'text', required: false, max: 100 });
+            }
+
+            if (dpiFieldsToAdd.length > 0) {
+                console.log('🛠️  Adding DPI fields to "monitors" collection...');
+                await pb.collections.update(monitorsCollection.id, {
+                    ...monitorsCollection,
+                    fields: [...(monitorsCollection.fields || []), ...dpiFieldsToAdd]
+                });
+                console.log('✅ "monitors" collection updated with DPI fields!\n');
+            }
+        }
+
         // ===== Create 'ping_logs' collection =====
         if (existingCollections.includes('ping_logs')) {
             const pingLogsCollection = await pb.collections.getOne('ping_logs');
-            const hasLoggedAtField = (pingLogsCollection.fields || []).some(field => field.name === 'logged_at');
+            const existingFields = (pingLogsCollection.fields || []).map(f => f.name);
+            const fieldsToAdd = [];
 
-            if (hasLoggedAtField) {
-                console.log('⚠️  Collection "ping_logs" already exists. Skipping.');
-            } else {
-                console.log('🛠️  Updating "ping_logs" collection with timestamp field...');
+            if (!existingFields.includes('logged_at')) {
+                fieldsToAdd.push(createLoggedAtField());
+            }
+            if (!existingFields.includes('ttl')) {
+                fieldsToAdd.push({ name: 'ttl', type: 'number', required: false, min: 0, max: 255 });
+            }
+            if (!existingFields.includes('jitter_ms')) {
+                fieldsToAdd.push({ name: 'jitter_ms', type: 'number', required: false, min: 0 });
+            }
+
+            if (fieldsToAdd.length > 0) {
+                console.log(`🛠️  Updating "ping_logs" collection with new fields: ${fieldsToAdd.map(f => f.name).join(', ')}...`);
                 await pb.collections.update(pingLogsCollection.id, {
                     ...pingLogsCollection,
-                    fields: [...(pingLogsCollection.fields || []), createLoggedAtField()]
+                    fields: [...(pingLogsCollection.fields || []), ...fieldsToAdd]
                 });
-                console.log('✅ "ping_logs" collection updated with "logged_at" field!\n');
+                console.log('✅ "ping_logs" collection updated!\n');
+            } else {
+                console.log('⚠️  Collection "ping_logs" already up to date. Skipping.');
             }
         } else {
             // Get monitors collection ID for relation
@@ -151,6 +206,19 @@ async function setup() {
                         type: 'bool',
                         required: false
                     },
+                    {
+                        name: 'ttl',
+                        type: 'number',
+                        required: false,
+                        min: 0,
+                        max: 255
+                    },
+                    {
+                        name: 'jitter_ms',
+                        type: 'number',
+                        required: false,
+                        min: 0
+                    },
                     createLoggedAtField()
                 ],
                 listRule: 'monitor.user = @request.auth.id',
@@ -163,12 +231,11 @@ async function setup() {
         }
 
         console.log('🎉 Setup complete! Collections are ready.');
-        console.log('   - monitors: stores ping target configurations');
-        console.log('   - ping_logs: stores ping results (created by worker)');
-        console.log('   - logged_at: stores exportable ping timestamps');
+        console.log('   - monitors: stores ping target configurations (with DPI fields)');
+        console.log('   - ping_logs: stores ping results with latency, TTL, jitter, and packet loss');
         console.log('\nNext steps:');
-        console.log('   1. Restart the worker so new ping logs include timestamps');
-        console.log('   2. Generate a few fresh pings, then try chart/export again');
+        console.log('   1. Restart the worker so new ping logs include TTL and jitter');
+        console.log('   2. Generate a few fresh pings, then try the chart/export again');
 
     } catch (err) {
         console.error('❌ Error:', err.message || err);
