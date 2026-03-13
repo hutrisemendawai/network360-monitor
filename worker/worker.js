@@ -16,6 +16,7 @@ import PocketBase from 'pocketbase';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import net from 'net';
+import os from 'os';
 import { EventSource } from 'eventsource';
 
 const PB_URL = 'http://127.0.0.1:8090';
@@ -88,13 +89,21 @@ let pb;
  */
 async function pingWithStats(host, timeoutSec) {
     try {
+        const isWindows = os.platform() === 'win32';
+        const pingArgs = isWindows
+            ? ['-n', '1', '-w', String(timeoutSec * 1000), host]
+            : ['-c', '1', '-W', String(timeoutSec * 1000), host];
+
         const { stdout } = await execFileAsync(
             'ping',
-            ['-c', '1', '-W', String(timeoutSec), host],
+            pingArgs,
             { timeout: (timeoutSec + 3) * 1000 }
         );
-        const ttlMatch = stdout.match(/ttl=(\d+)/i);
-        const timeMatch = stdout.match(/time=([0-9.]+)\s*ms/i);
+        
+        const ttlMatch = isWindows
+            ? stdout.match(/TTL[=:](\d+)/i)
+            : stdout.match(/ttl=(\d+)/i);
+        const timeMatch = stdout.match(/time[=:]([0-9.]+)\s*ms/i);
         const alive = !!timeMatch;
         const ttl = ttlMatch ? parseInt(ttlMatch[1], 10) : null;
         const latency = timeMatch ? parseFloat(timeMatch[1]) : 0;

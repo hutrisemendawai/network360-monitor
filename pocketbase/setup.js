@@ -34,7 +34,7 @@ async function setup() {
     try {
         // Authenticate as superuser
         console.log('🔐 Authenticating as superuser...');
-        await pb.collection('_superusers').authWithPassword(email, password);
+        await pb.admins.authWithPassword(email, password);
         console.log('✅ Authenticated!\n');
 
         // Check if collections already exist
