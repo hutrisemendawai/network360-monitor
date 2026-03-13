@@ -34,7 +34,10 @@ const dpiTimers = new Map();
 /** @type {Map<string, number>} Previous latency per monitor for jitter calculation */
 const previousLatencies = new Map();
 
-/** 5-minute DPI rescan interval */
+/**
+ * How often to re-run a DPI scan per monitor (milliseconds).
+ * 5 minutes balances freshness against the cost of probing 20 TCP ports per host.
+ */
 const DPI_INTERVAL_MS = 5 * 60 * 1000;
 
 /** Known TCP services for DPI port probing */
@@ -126,6 +129,7 @@ function calculateJitter(monitorId, currentLatency) {
 
 /**
  * Attempts a TCP connection to host:port and returns true if the port is open.
+ * Uses a destroyed flag to prevent double-destroy of the socket.
  * @param {string} host
  * @param {number} port
  * @param {number} [timeoutMs]
@@ -134,13 +138,20 @@ function calculateJitter(monitorId, currentLatency) {
 function probePort(host, port, timeoutMs = 2000) {
     return new Promise((resolve) => {
         const socket = new net.Socket();
-        socket.setTimeout(timeoutMs);
-        socket.connect(port, host, () => {
+        let settled = false;
+
+        /** @param {boolean} result */
+        function finish(result) {
+            if (settled) return;
+            settled = true;
             socket.destroy();
-            resolve(true);
-        });
-        socket.on('timeout', () => { socket.destroy(); resolve(false); });
-        socket.on('error',   () => { socket.destroy(); resolve(false); });
+            resolve(result);
+        }
+
+        socket.setTimeout(timeoutMs);
+        socket.connect(port, host, () => finish(true));
+        socket.on('timeout', () => finish(false));
+        socket.on('error',   () => finish(false));
     });
 }
 
@@ -186,18 +197,39 @@ async function runDPIScan(host) {
 }
 
 /**
- * Runs a DPI scan for a monitor and saves the result back to the monitor record.
+ * Runs a DPI scan for a monitor and saves the result back to the monitor record
+ * only when the scan results differ from the previously stored values.
  * @param {any} monitor
  */
 async function scheduleDPIScan(monitor) {
     try {
         console.log(`  🔍 DPI scan starting for ${monitor.target_host}...`);
         const { protocols, openPorts, qosClass } = await runDPIScan(monitor.target_host);
+
+        const newProtocols = JSON.stringify(protocols);
+        const newPorts = JSON.stringify(openPorts);
+
+        // Skip the database write if nothing changed
+        if (
+            monitor.dpi_protocols === newProtocols &&
+            monitor.dpi_open_ports === newPorts &&
+            monitor.dpi_qos_class === qosClass
+        ) {
+            console.log(`  🔍 DPI unchanged for ${monitor.target_host}: [${qosClass}]`);
+            return;
+        }
+
         await pb.collection('monitors').update(monitor.id, {
-            dpi_protocols: JSON.stringify(protocols),
-            dpi_open_ports: JSON.stringify(openPorts),
+            dpi_protocols: newProtocols,
+            dpi_open_ports: newPorts,
             dpi_qos_class: qosClass
         });
+
+        // Keep our local copy in sync so the next run can compare correctly
+        monitor.dpi_protocols = newProtocols;
+        monitor.dpi_open_ports = newPorts;
+        monitor.dpi_qos_class = qosClass;
+
         const summary = protocols.length > 0
             ? `${protocols.join(', ')} [${qosClass}]`
             : `no open TCP ports found [${qosClass}]`;

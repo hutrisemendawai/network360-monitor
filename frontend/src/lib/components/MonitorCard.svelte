@@ -8,6 +8,13 @@
     /** @type {{ monitor: any, showAllCharts?: boolean, showAllAnimations?: boolean, onEdit?: () => void }} */
     let { monitor, showAllCharts = true, showAllAnimations = true, onEdit = () => {} } = $props();
 
+    /**
+     * Jitter above this threshold (ms) is considered notable and will render
+     * the badge in amber instead of teal. RFC 3550 recommends < 30 ms for
+     * real-time traffic; 20 ms provides an early-warning margin.
+     */
+    const JITTER_WARN_THRESHOLD_MS = 20;
+
     let latestLatency = $state(0);
     let latestPacketLoss = $state(false);
     let latestTTL = $state(/** @type {number | null} */(null));
@@ -73,10 +80,16 @@
 
     // Parse DPI fields from monitor record
     let dpiProtocols = $derived.by(() => {
-        try { return JSON.parse(monitor.dpi_protocols || '[]'); } catch { return []; }
+        try { return JSON.parse(monitor.dpi_protocols || '[]'); } catch (e) {
+            console.error('Failed to parse dpi_protocols for monitor', monitor.id, e);
+            return [];
+        }
     });
     let dpiOpenPorts = $derived.by(() => {
-        try { return JSON.parse(monitor.dpi_open_ports || '[]'); } catch { return []; }
+        try { return JSON.parse(monitor.dpi_open_ports || '[]'); } catch (e) {
+            console.error('Failed to parse dpi_open_ports for monitor', monitor.id, e);
+            return [];
+        }
     });
     let dpiQosClass = $derived(monitor.dpi_qos_class || '');
 
@@ -279,7 +292,7 @@
                         </span>
                     {/if}
                     {#if latestJitter > 0}
-                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono {latestJitter > 20 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'}">
+                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono {latestJitter > JITTER_WARN_THRESHOLD_MS ? 'bg-amber-500/10 text-amber-300 border border-amber-500/20' : 'bg-teal-500/10 text-teal-300 border border-teal-500/20'}">
                             ±{latestJitter.toFixed(1)}ms jitter
                         </span>
                     {/if}

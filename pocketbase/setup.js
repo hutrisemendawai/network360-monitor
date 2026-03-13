@@ -161,6 +161,7 @@ async function setup() {
                 fieldsToAdd.push(createLoggedAtField());
             }
             if (!existingFields.includes('ttl')) {
+                // IP TTL is an 8-bit unsigned integer (0–255)
                 fieldsToAdd.push({ name: 'ttl', type: 'number', required: false, min: 0, max: 255 });
             }
             if (!existingFields.includes('jitter_ms')) {
@@ -207,6 +208,7 @@ async function setup() {
                         required: false
                     },
                     {
+                        // IP TTL is an 8-bit unsigned integer (0–255)
                         name: 'ttl',
                         type: 'number',
                         required: false,
